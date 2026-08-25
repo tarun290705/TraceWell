@@ -1,6 +1,6 @@
 from .config import TracewellConfig
 from .core.client import SpanCLient
-from .core.span import SPan, Tracer
+from .core.span import Span, Tracer
 
 __all__ = ['Span', 'Tracer', 'SpanClient', 'TracewellConfig', 'create_tracer']
 

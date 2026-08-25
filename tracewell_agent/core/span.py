@@ -27,7 +27,7 @@ class Span:
         self.metadata: Dict[str, Any] = metadata or {}
 
     def start(self) -> 'Span':
-        self.start = time.time()
+        self.start_time = time.time()
         return self
 
     def end(self, status: str = 'ok') -> 'Span':
@@ -91,6 +91,7 @@ class Tracer:
 
         trace_token = _current_trace_id.set(span.trace_id)
         span_token = _current_span_id.set(span.span_id)
+        span.start()
 
         try:
             yield span

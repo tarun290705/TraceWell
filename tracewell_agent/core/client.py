@@ -4,7 +4,7 @@ import logging
 import queue
 import threading
 from typing import Any, Dict
-import websocket
+import websockets
 
 logger = logging.getLogger('tracewell_agent')
 
@@ -41,6 +41,7 @@ class SpanCLient:
         self._thread.join(timeout=timeout)
 
     def send(self, span_dict: Dict[str, Any]) -> None:
+        print(f"[TRACE] SpanClient.send() received span_id={span_dict.get('span_id')} name={span_dict.get('name')}")
         try:
             self._queue.put_nowait(span_dict)
         except queue.Full:
@@ -58,8 +59,8 @@ class SpanCLient:
         registration = {'type': 'register', 'app_name': self.app_name, 'framework': self.framework}
         while not self._stop_event.is_set():
             try:
-                async with websocket.connect(self.collector_ws_url) as ws:
-                    await ws.swnd(json.dumps(registration))
+                async with websockets.connect(self.collector_ws_url) as ws:
+                    await ws.send(json.dumps(registration))
                     logger.info('tracewell_agent: connected to collector')
                     await self._drain_queue(ws)
             except Exception as exc:

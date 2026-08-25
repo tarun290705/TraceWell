@@ -5,7 +5,7 @@ from .serializers import SpanSerializer, ConnectedAppSerializer
 
 @api_view(['GET'])
 def list_traces(request):
-    trace_ids = Span.objects.values_list('trace_id', flat=True).distinct()
+    trace_ids = Span.objects.order_by().values_list('trace_id', flat=True).distinct()
     summaries = []
 
     for trace_id in trace_ids:

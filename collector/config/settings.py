@@ -139,9 +139,6 @@ ASGI_APPLICATION = 'config.asgi.application'
 
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            'hosts': [(config('REDIS_HOST'), config('REDIS_PORT', cast=int))],
-        },
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
     },
 }
