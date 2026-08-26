@@ -105,3 +105,24 @@ class Tracer:
             self._client.send(span.to_dict())
             _current_span_id.reset(span_token)
             _current_trace_id.reset(trace_token)
+
+    def start_span(self, name: str, metadata: Optional[Dict[str, Any]] = None):
+        parent_span_id = _current_span_id.get()
+        trace_id = _current_trace_id.get()
+        span = Span(name=name, trace_id=trace_id, parent_span_id=parent_span_id, metadata=metadata)
+        trace_token = _current_trace_id.set(span.trace_id)
+        span_token = _current_span_id.set(span.span_id)
+        span.start()
+
+        return (span, trace_token, span_token)
+
+    def end_span(self, handle, status: str = 'ok', error: Optional[Exception] = None):
+        span, trace_token, span_token = handle
+        if error is not None:
+            span.metadata['error'] = repr(error)
+            span.end(status='error')
+        else:
+            span.end(status=status)
+        self._client.send(span.to_dict())
+        _current_span_id.reset(span_token)
+        _current_trace_id.reset(trace_token)
