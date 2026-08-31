@@ -1,0 +1,4 @@
+.page-header + .data-table,
+.page-header ~ .error-banner {
+  margin-top: 4px;
+}

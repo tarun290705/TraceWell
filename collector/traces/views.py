@@ -21,7 +21,7 @@ def list_traces(request):
             'start_time': root.start_time,
             'duration_ms': root.duration_ms,
         })
-
+    summaries.sort(key=lambda s: s['start_time'] or 0, reverse=True)
     return Response(summaries)
 
 @api_view(['GET'])

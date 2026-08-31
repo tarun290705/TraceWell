@@ -1,5 +1,9 @@
+from datetime import timedelta
+from django.utils import timezone
 from rest_framework import serializers
 from .models import Span, ConnectedApp
+
+STALE_AFTER_SECONDS = 15
 
 class SpanSerializer(serializers.ModelSerializer):
     class Meta:
@@ -10,6 +14,12 @@ class SpanSerializer(serializers.ModelSerializer):
         ]
 
 class ConnectedAppSerializer(serializers.ModelSerializer):
+    is_connected = serializers.SerializerMethodField()
     class Meta:
         model = ConnectedApp
         fields = ['app_name', 'framework', 'is_connected', 'last_seen']
+
+    def get_is_connected(self, obj):
+        if not obj.is_connected:
+            return False
+        return (timezone.now() - obj.last_seen) < timedelta(seconds=STALE_AFTER_SECONDS)
