@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "express": "^5.2.1",
+    "tracewell_agent_node": "file:../../tracewell_agent_node"
+  }
+}

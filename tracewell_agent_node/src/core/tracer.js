@@ -49,6 +49,26 @@ class Tracer {
     get currentSpanId() {
         return this._als.getStore()?.spanId ?? null;
     }
+
+    startSpan(name, metadata) {
+        const parentStore = this._als.getStore();
+        return new Span({
+            name,
+            traceId: parentStore?.traceId,
+            parentSpanId: parentStore?.spanId,
+            metadata,
+        }).start();
+    }
+
+    endSpan(span, status = 'ok', error = null) {
+        if (error) {
+            span.metadata.error = String(error);
+            span.end('error');
+        } else {
+            span.end(status);
+        }
+        this._client.send(span.toDict());
+    }
 }
 
 module.exports = { Tracer };
