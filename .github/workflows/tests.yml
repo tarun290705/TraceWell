@@ -1,0 +1,85 @@
+name: Tests
+
+on:
+    push:
+    pull_request:
+
+jobs:
+    python-core:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v5
+              with:
+                python-version: '3.11'
+            - name: Install package
+              run: pip install -e
+            - name: Run smoke test
+              run: python tests/smoke_test.py
+
+    python-adapters:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-python@v5
+          with:
+            python-version: '3.11'
+        - name: Install package and test dependencies
+          run: |
+            pip install -e
+            pip install fastapi httpx django
+        - name: Run FastAPI adapter tests
+          run: python tests/fastapi_adapter_test.py
+        - name: Run Djnago adapter tests
+          run: python tests/django_adapter_test.py
+
+    collector:
+      runs-on: ubuntu-latest
+      services:
+        postgres:
+          image: postgres:16
+          env:
+            POSTGRES_DB: tracewell_collector_test
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+          ports:
+            - 5432:5432
+          options: >-
+            --health-cmd "pg_isready -U postgres"
+            --health-interval 5s
+            --health-timeout 5s
+            --health-retries 5
+      defaults:
+        run:
+          working-directory: collector
+      env:
+        SECRET_KEY: ci-test-secret-key
+        DB_NAME: tracewell_collector_test
+        DB_USER: postgres
+        DB_PASSWORD: postgres
+        DB_HOST: localhost
+        DB_PORT: 5432
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-python@v5
+          with:
+            python-version: '3.11'
+        - name: Install dependencies
+          run: pip install -r requirements.txt
+        - name: Run DJnago test suite
+          run: python manage.py test traces
+    
+    node-agent:
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: tracewell_agent_node
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                node-version: '20'
+            - name: Install dependencies
+              run: npm install
+            - name: Run all Node tests
+              run: npm test

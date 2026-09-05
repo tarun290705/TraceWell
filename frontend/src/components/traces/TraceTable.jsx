@@ -21,24 +21,12 @@ export default function TraceTable({ traces, loading, hasFilters }) {
         <tbody>
           {Array.from({ length: 6 }).map((_, i) => (
             <tr key={i} className="skeleton-row">
-              <td>
-                <div className="skeleton" />
-              </td>
-              <td>
-                <div className="skeleton" />
-              </td>
-              <td>
-                <div className="skeleton" />
-              </td>
-              <td>
-                <div className="skeleton" />
-              </td>
-              <td>
-                <div className="skeleton" />
-              </td>
-              <td>
-                <div className="skeleton" />
-              </td>
+              <td><div className="skeleton" /></td>
+              <td><div className="skeleton" /></td>
+              <td><div className="skeleton" /></td>
+              <td><div className="skeleton" /></td>
+              <td><div className="skeleton" /></td>
+              <td><div className="skeleton" /></td>
             </tr>
           ))}
         </tbody>
@@ -96,7 +84,18 @@ export default function TraceTable({ traces, loading, hasFilters }) {
             <td>
               <TraceStatus status={trace.status} />
             </td>
-            <td>{formatDuration(trace.duration_ms)}</td>
+            <td>
+              {formatDuration(trace.duration_ms)}
+              {trace.is_anomalous && (
+                <span
+                  className="badge status-warning"
+                  style={{ marginLeft: 6 }}
+                  title="Duration exceeds this endpoint's typical range (mean + 2 standard deviations)"
+                >
+                  Slow
+                </span>
+              )}
+            </td>
             <td>{formatTimestamp(trace.start_time)}</td>
           </tr>
         ))}

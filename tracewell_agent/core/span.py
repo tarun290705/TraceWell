@@ -1,36 +1,40 @@
-import time
-import uuid
 import contextlib
 import contextvars
+import time
+import uuid
 from typing import Any, Dict, Optional
 
-_current_trace_id = contextvars.ContextVar('tracewell_trace_id', default=None)
-_current_span_id = contextvars.ContextVar('tracewell_span_id', default=None)
+_current_trace_id = contextvars.ContextVar("tracewell_trace_id", default=None)
+_current_span_id = contextvars.ContextVar("tracewell_span_id", default=None)
 
 class Span:
-    def __init__(
-            self,
-            name: str,
-            trace_id: Optional[str] = None,
-            parent_span_id: Optional[str] = None,
-            span_id: Optional[str] = None,
-            metadata: Optional[Dict[str, Any]] = None,
-    ):
+    __slots__ = (
+        "span_id", "trace_id", "parent_span_id", "name",
+        "start_time", "end_time", "status", "metadata",
+    )
 
+    def __init__(
+        self,
+        name: str,
+        trace_id: Optional[str] = None,
+        parent_span_id: Optional[str] = None,
+        span_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
         self.span_id = span_id or uuid.uuid4().hex
         self.trace_id = trace_id or self.span_id
         self.parent_span_id = parent_span_id
         self.name = name
         self.start_time: Optional[float] = None
         self.end_time: Optional[float] = None
-        self.status = 'in_progress'
+        self.status = "in_progress"
         self.metadata: Dict[str, Any] = metadata or {}
 
-    def start(self) -> 'Span':
+    def start(self) -> "Span":
         self.start_time = time.time()
         return self
 
-    def end(self, status: str = 'ok') -> 'Span':
+    def end(self, status: str = "ok") -> "Span":
         self.end_time = time.time()
         self.status = status
         return self
@@ -41,18 +45,26 @@ class Span:
             return None
         return round((self.end_time - self.start_time) * 1000, 3)
 
-    def to_dict(self) ->Dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         return {
-            'span_id': self.span_id,
-            'trace_id': self.trace_id,
-            'parent_span_id': self.parent_span_id,
-            'name': self.name,
-            'start_time': self.start_time,
-            'end_time': self.end_time,
-            'duration_ms': self.duration_ms,
-            'status': self.status,
-            'metadata': self.metadata,
+            "span_id": self.span_id,
+            "trace_id": self.trace_id,
+            "parent_span_id": self.parent_span_id,
+            "name": self.name,
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "duration_ms": self.duration_ms,
+            "status": self.status,
+            "metadata": self.metadata,
         }
+
+    def __repr__(self):
+        return (
+            f"Span(name={self.name!r}, span_id={self.span_id[:8]}, "
+            f"parent={self.parent_span_id[:8] if self.parent_span_id else None}, "
+            f"status={self.status}, duration_ms={self.duration_ms})"
+        )
+
 
 class Tracer:
     def __init__(self, client):
@@ -60,51 +72,59 @@ class Tracer:
 
     @contextlib.contextmanager
     def span(self, name: str, metadata: Optional[Dict[str, Any]] = None):
-        parent_span_id = _current_span_id.get()
-        trace_id = _current_trace_id.get()
-
-        span = Span(name=name, trace_id=trace_id, parent_span_id=parent_span_id, metadata=metadata)
-
-        trace_token = _current_trace_id.set(span.trace_id)
-        span_token = _current_span_id.set(span.span_id)
-        span.start()
-
+        span, trace_token, span_token = self._enter(name, metadata)
         try:
             yield span
         except Exception as exc:
-            span.metadata['error'] = repr(exc)
-            span.end(status='error')
+            span.metadata["error"] = repr(exc)
+            span.end(status="error")
             raise
         else:
-            span.end(status='ok')
+            if span.status == "in_progress":
+                span.end(status="ok")
+            else:
+                span.end_time = time.time()
         finally:
-            self._client.send(span.to_dict())
-            _current_span_id.reset(span_token)
-            _current_trace_id.reset(trace_token)
+            self._exit(span, trace_token, span_token)
 
     @contextlib.asynccontextmanager
     async def aspan(self, name: str, metadata: Optional[Dict[str, Any]] = None):
-        parent_span_id = _current_span_id.get()
-        trace_id = _current_trace_id.get()
-
-        span = Span(name=name, trace_id=trace_id, parent_span_id=parent_span_id, metadata=metadata)
-
-        trace_token = _current_trace_id.set(span.trace_id)
-        span_token = _current_span_id.set(span.span_id)
-        span.start()
-
+        span, trace_token, span_token = self._enter(name, metadata)
         try:
             yield span
         except Exception as exc:
-            span.metadata['error'] = repr(exc)
-            span.end(status='error')
+            span.metadata["error"] = repr(exc)
+            span.end(status="error")
             raise
         else:
-            span.end(status='ok')
+            if span.status == "in_progress":
+                span.end(status="ok")
+            else:
+                span.end_time = time.time()
         finally:
-            self._client.send(span.to_dict())
-            _current_span_id.reset(span_token)
-            _current_trace_id.reset(trace_token)
+            self._exit(span, trace_token, span_token)
+
+    def _enter(self, name, metadata):
+        parent_span_id = _current_span_id.get()
+        trace_id = _current_trace_id.get()
+        span = Span(name=name, trace_id=trace_id, parent_span_id=parent_span_id, metadata=metadata)
+        trace_token = _current_trace_id.set(span.trace_id)
+        span_token = _current_span_id.set(span.span_id)
+        span.start()
+        return span, trace_token, span_token
+
+    def _exit(self, span, trace_token, span_token):
+        self._client.send(span.to_dict())
+        _current_span_id.reset(span_token)
+        _current_trace_id.reset(trace_token)
+
+    @property
+    def current_trace_id(self) -> Optional[str]:
+        return _current_trace_id.get()
+
+    @property
+    def current_span_id(self) -> Optional[str]:
+        return _current_span_id.get()
 
     def start_span(self, name: str, metadata: Optional[Dict[str, Any]] = None):
         parent_span_id = _current_span_id.get()
@@ -113,14 +133,13 @@ class Tracer:
         trace_token = _current_trace_id.set(span.trace_id)
         span_token = _current_span_id.set(span.span_id)
         span.start()
-
         return (span, trace_token, span_token)
 
-    def end_span(self, handle, status: str = 'ok', error: Optional[Exception] = None):
+    def end_span(self, handle, status: str = "ok", error: Optional[Exception] = None):
         span, trace_token, span_token = handle
         if error is not None:
-            span.metadata['error'] = repr(error)
-            span.end(status='error')
+            span.metadata["error"] = repr(error)
+            span.end(status="error")
         else:
             span.end(status=status)
         self._client.send(span.to_dict())

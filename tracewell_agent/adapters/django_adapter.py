@@ -1,5 +1,7 @@
+import functools
 from django.conf import settings
 from django.db import connection
+from asgiref.sync import sync_to_async
 from .. import create_tracer
 from ..config import TracewellConfig
 
@@ -12,6 +14,29 @@ def get_tracer():
         )
 
     return _tracer
+
+def make_query_wrapper(tracer):
+    def _query_wrapper(execute, sql, params, many, context):
+        handle = tracer.start_span('sql_query', metadata={'statement': sql[:300]})
+        try:
+            result = execute(sql, params, many, context)
+        except Exception as exc:
+            tracer.end_span(handle, error=exc)
+            raise
+        else:
+            tracer.end_span(handle, status='ok')
+            return result
+    return _query_wrapper
+
+def traced_db_call(func):
+    @sync_to_async
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        tracer = get_tracer()
+        with connection.execute_wrapper(make_query_wrapper(tracer)):
+            return func(*args, *kwargs)
+
+    return wrapper
 
 class TracewellMiddleware:
     def __init__(self, get_response):
@@ -45,6 +70,8 @@ class TracewellMiddleware:
                 'path': request.path,
             }) as span:
                 response = self.get_response(request)
+                if getattr(request, 'resolver_match', None) is not None:
+                    span.metadata['route'] = request.resolver_match.route
                 span.metadata['status_code'] = response.status_code
                 if response.status_code >= 500:
                     span.status = 'error'

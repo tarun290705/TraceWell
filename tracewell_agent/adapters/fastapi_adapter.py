@@ -23,6 +23,9 @@ class TracewellMiddleware(BaseHTTPMiddleware):
             'path': request.url.path,
         }) as span:
             response = await call_next(request)
+            route = request.scope.get('route')
+            if route is not None:
+                span.metadata['route'] = getattr(route, 'path', None)
             span.metadata['status_code'] = response.status_code
             if response.status_code >= 500:
                 span.status = 'error'

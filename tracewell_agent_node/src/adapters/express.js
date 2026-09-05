@@ -22,6 +22,9 @@ function tracewellMiddleware(tracer) {
                     const finish = () => {
                         if (settled) return;
                         settled = true;
+                        if (req.route) {
+                            span.metadata.route = (req.baseUrl || '') + req.route.path;
+                        }
                         span.metadata.status_code = res.statusCode;
                         if(res.statusCode >= 500) {
                             span.status = 'error';
