@@ -27,10 +27,10 @@ jobs:
         - name: Install package and test dependencies
           run: |
             pip install -e .
-            pip install fastapi httpx django
+            pip install fastapi httpx django sqlalchemy websockets
         - name: Run FastAPI adapter tests
           run: python tests/fastapi_adapter_test.py
-        - name: Run Djnago adapter tests
+        - name: Run Django adapter tests
           run: python tests/django_adapter_test.py
 
     collector:
@@ -66,7 +66,7 @@ jobs:
             python-version: '3.13'
         - name: Install dependencies
           run: pip install -r requirements.txt
-        - name: Run DJnago test suite
+        - name: Run Django test suite
           run: python manage.py test traces
     
     node-agent:
