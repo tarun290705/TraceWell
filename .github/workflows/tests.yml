@@ -13,7 +13,7 @@ jobs:
               with:
                 python-version: '3.13'
             - name: Install package
-              run: pip install -e
+              run: pip install -e .
             - name: Run smoke test
               run: python tests/smoke_test.py
 
@@ -26,7 +26,7 @@ jobs:
             python-version: '3.13'
         - name: Install package and test dependencies
           run: |
-            pip install -e
+            pip install -e .
             pip install fastapi httpx django
         - name: Run FastAPI adapter tests
           run: python tests/fastapi_adapter_test.py
